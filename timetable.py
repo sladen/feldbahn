@@ -1,20 +1,26 @@
 #!/usr/bin/env python
+# -*- coding: utf-8 -*-
 import matplotlib.pyplot as plt
+import matplotlib.dates
+import matplotlib.ticker
 import datetime
 import random
 
 chainages = {
- 'forest_construction': +300,
- 'bagger': +376-20,
- 'sidings': +281,
- 'loop_points': +181,
- 'bahnhof': +124-84,
- 'points': 0,
- 'eingang': -10,
- 'reversal': -30,
- 'road': -168,
- 'foot': -311,
- 'landratsamt': -386 + 36,
+# 'forest_construction': +300,
+ 'Bagger': +376,
+# 'sidings': +281,
+# 'loop': +181,
+ 'Lokschupp.': +90,
+ 'Bahnhof': +50,
+# 'points': 0,
+ 'Eingang X': -10,
+# 'reversal': -30,
+# u'Adelsförsterpfad': -168,
+# u'crossing': -168,
+ u'Adelsförst. X': -168,
+ u'Fuß. X': -311,
+ 'Landratsamt': -386,
  }
 
 """
@@ -22,7 +28,7 @@ chainages = {
 Bagger +376 (+356)
 Sidings +281
 Points +181
-Bahnhof +124 (+40)
+Bahnhof +124 (+50)
 Points 0
 Eingang -10
 Reversal -30
@@ -78,7 +84,7 @@ def main():
 
     def bahnhof(t):
         # Bahnhof
-        y.append(40), x.append(t)
+        y.append(45), x.append(t)
     def incline(t,coupling=False,incoming=False,chainage=-40):
         # Incline accent
         d = datetime.timedelta(seconds=50)
@@ -109,6 +115,7 @@ def main():
     # Opening time, static train waiting
     bahnhof(parse_timestamp('1000'))
 
+    labels = []
     # Public trips
     for destination,departure,arrival in times:
         dep = parse_timestamp(departure)
@@ -131,6 +138,8 @@ def main():
             bagger(arr - datetime.timedelta(minutes=4))
             landratsamt(dep + datetime.timedelta(minutes=6))
 
+        labels.append((dep, departure,))
+
         # Incline Descent
         incline(arr,incoming=True)
         # Bahnhof
@@ -139,27 +148,82 @@ def main():
     # Last train of day, returning to second platform
     distance(parse_timestamp('1729'), 62) # Bahnhof P.2
 
-    # Shunting
+    # End-of-day shunting
     distance(parse_timestamp('1739'), 62) # Bahnhof P.2
     distance(parse_timestamp('1743'), -112+62) # Carriage shed
     distance(parse_timestamp('1744'), -112+62) # Carriage shed
     distance(parse_timestamp('1748'), 87) # Inside Shed
 
+    def inch(mm): return mm / 25.4
+
+    # Bring up a Figure/Plot
+    fig = plt.figure(figsize=(inch(298),inch(150)))
+    
     p = plt.plot(x,y)
-    print `p[0]`, dir(p[0])
-    # Opening/closing hours
-    plt.xlim(parse_timestamp('1000'), parse_timestamp('1800'))
     plt.setp(p, color='gray')
-    plt.xlabel('Departure Time: 01.05.2016 (CET)')
-    plt.ylabel('Distance')
-    plt.gcf().autofmt_xdate()
-    q = plt.plot()
-    p[0].axes.yaxis.set_ticks_position('left')
-    p[0].axes.yaxis.set_label_position('right')
+    ax = plt.gca()
+    ax2 = ax.twinx()
+    ax.set_title("Wiesloch Feldbahn: Fahrt in den Mai 2016: Time/Distance", position=(0.5,0))
 
-            
+    # Opening/closing hours
+    ax.set_xlim(parse_timestamp('1000'), parse_timestamp('1800'))
+    ax.set_ylim(-400,400)
+    ax.get_xaxis().set_visible(True)
 
-    plt.yticks([200,0,-200], ['a','b','c'])
+    ax.xaxis.grid(True, which='major')
+    ax.xaxis.grid(False, which='minor')
+
+    k,v = zip(*chainages.items())
+    ax.yaxis.set_ticks_position('left')
+    ax.set_yticks(v)
+    ax.set_yticklabels(k, rotation=40, va='baseline')
+
+    ax.yaxis.grid(True, which='major')
+    ax.yaxis.grid(False, which='minor')
+
+    ax.set_xlabel('01.05.2016 (CET)')
+    ax2.set_xlim(parse_timestamp('1000'), parse_timestamp('1800'))
+    ax2.set_ylim(-400,400)
+    ax2.set_ylabel(u'Landratsamt          —           Waldstrecke ')
+    ax2.get_xaxis().set_visible(False)
+    metres = matplotlib.ticker.FormatStrFormatter('%3dm')
+    ax2.yaxis.set_major_formatter(metres)
+    ax2.yaxis.set_label_position('right')
+    ax2.yaxis.set_ticks_position('right')
+    hours = matplotlib.dates.DateFormatter("%Hh")
+    ax2.xaxis.set_major_formatter(hours)
+
+
+    (_,first,_) = times[0]
+    (_,last,_) = times[-1]
+    last = parse_timestamp(last)
+    first = parse_timestamp(first)
+    spacing = (last-first)/len(times)
+    spacing = (last-(first-spacing-spacing))/len(times)
+
+    advance = first
+    offset = 15
+    for (t,s),(destination,departure,arrival) in zip(labels,times):
+        dep = parse_timestamp(departure)
+        arr = parse_timestamp(arrival)
+        minutes = int((arr-dep).total_seconds() / 60)
+
+        annotation = '%s+%02d' % (s, minutes)
+        colour = 'gray'
+        vertical = 350
+        if destination in 'Wald':
+            vertical += 10
+            colour='darkgreen'
+        elif destination in 'Land':
+            vertical -= 20
+            colour='darkred'
+        elif destination in ('Gros', 'Oppo'):
+            colour='darkblue'
+        ax.annotate(annotation, xy=(t, vertical), xytext=(advance, 470), ha='left', color=colour, rotation=40, fontsize='small',
+                    arrowprops=dict(arrowstyle="->", color=colour, connectionstyle="arc,angleA=220,rad=10,armA=35,armB=0,angleB=0"))
+        offset *= -1
+        advance += spacing
+
     plt.savefig('temp.pdf', transparent=True)
     plt.show()
 
