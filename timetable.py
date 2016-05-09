@@ -7,6 +7,7 @@ import datetime
 import time
 import operator
 import math
+import numpy
 
 chainages = {
  'Waldstrecke': +407, # Farther extend of loop before returning
@@ -146,8 +147,8 @@ def main():
                 bagger(arr)
         if destination in ('Oppo',):
             bagger(arr - datetime.timedelta(minutes=3))
-            road_crossing(arr - datetime.timedelta(minutes=4))
-            landratsamt(arr - datetime.timedelta(minutes=3))
+            road_crossing(arr - datetime.timedelta(minutes=5))
+            landratsamt(arr - datetime.timedelta(minutes=5))
 
         labels.append((dep, departure,))
 
@@ -171,9 +172,9 @@ def main():
     x, y = [], []
     
     # End-of-day shunting - Light-engine to fetch flat wagon
-    
-    distance(parse_timestamp('1726'), -360) # Bahnhof P.2 "02 points"
-    distance(parse_timestamp('1727'), -360) # Bahnhof P.2 "02 points"
+    # and shunting again to allow empty carriages to pass
+    distance(parse_timestamp('1727'), -360) # Light engine from Landratsamt
+    distance(parse_timestamp('1728'), -360) # 
     distance(parse_timestamp('1730'), 59) # Bahnhof P.2 "02 points"
     distance(parse_timestamp('1731'), 59) # Bahnhof P.2 "02 points"
     distance(parse_timestamp('1732'), 59-80) # Waiting for Child with Bicycle
@@ -193,16 +194,16 @@ def main():
 
     # Bring up a Figure/Plot
     def inch(mm): return mm / 25.4
-    fig = plt.figure(figsize=(inch(298),inch(150)))
+    fig = plt.figure(222,figsize=(inch(298),inch(150)))
 
     plt.rcParams['font.family'] = 'Ubuntu Mono'
-    
+
+    ax = fig.add_subplot(1,1,1)
     q = plt.plot(*end_of_day_movement, color='lightgray')
     p = plt.plot(x,y)
     plt.setp(p, color='gray')
-    ax = plt.gca()
     ax2 = ax.twinx()
-    ax.set_title(u"Wiesloch Feldbahnmuseum: Zeit/Weg (Fahrt in den Mai 2016)", position=(0.5,-0.11), color='darkgray')
+    ax.set_title(u"Wiesloch Feldbahnmuseum: Zeit/Weg und Warten (Fahrt in den Mai 2016)", position=(0.5,-0.11), color='darkgray')
 
     # Opening/closing hours
     ax.set_xlim(parse_timestamp('1000'), parse_timestamp('1800'))
@@ -292,14 +293,57 @@ def main():
         offset *= -1
         advance += spacing
 
+    waits = []
+    land_waits = []
+    wald_waits = []
     last_arr = parse_timestamp('1000')
-    for (_,departure,arrival) in times:
+    for (dest,departure,arrival) in times:
         dep = parse_timestamp(departure)
         waiting_minutes = int((dep-last_arr).total_seconds() / 60)
         mid_time = last_arr + (dep-last_arr)/2
+        coord = (mid_time, waiting_minutes * 10,)
+        waits.append(coord)
+        # Exclude excessively long Mittagessen pausen
+        if True or waiting_minutes not in (23,):
+            if dest in 'Land':
+                land_waits.append(coord)
+            elif dest in 'Wald':
+                wald_waits.append(coord)
         #ax.annotate('%d' % waiting_minutes, xy=(mid_time, 45), xytext=(dep, 50), ha='right', color='gray', fontsize='small')
-        ax.annotate('%d' % waiting_minutes, xy=(mid_time, 45), xytext=(mid_time, 50), ha='center', color='darkgray', fontsize='small')
+        colours = {'Land': 'saddlebrown',
+                   'Wald': 'darkgreen',
+                   'Oppo': 'darkblue',
+                   'Gros': 'darkblue'}
+        colour = colours[dest]
+        colour = 'darkgray'
+        ax.annotate('%d' % waiting_minutes, xy=(mid_time, 45), xytext=(mid_time, 50), ha='center', color=colour, fontsize='small')
         last_arr = parse_timestamp(arrival)
+    #ax.plot(*zip(*land_waits), linestyle=':', color='saddlebrown')
+    wx,wy = zip(*wald_waits)
+    ax.plot(wx,wy, linestyle=':', color='darkgreen')
+
+    wx,wy = zip(*wald_waits[:4])
+    wx2 = matplotlib.dates.date2num(wx)
+    p = numpy.poly1d(numpy.polyfit(wx2, wy, 1))
+    ax2.plot(wx,p(wx2),"r--", color='darkgreen')
+    wx,wy = zip(*wald_waits[4:])
+    wx2 = matplotlib.dates.date2num(wx)
+    p = numpy.poly1d(numpy.polyfit(wx2, wy, 1))
+    ax2.plot(wx,p(wx2),"r--", color='darkgreen')
+
+    # Landratsamt waiting times are essentially random, doesn't really help with visualisation
+    wx,wy = zip(*land_waits)
+    #ax.plot(wx,wy, linestyle=':', color='lightgray')
+    wx,wy = zip(*land_waits[:4])
+    #ax.plot(wx,wy, linestyle=':', color='saddlebrown')
+    wx2 = matplotlib.dates.date2num(wx)
+    p = numpy.poly1d(numpy.polyfit(wx2, wy, 1))
+    ax2.plot(wx,p(wx2),"r--", color='saddlebrown')
+    # Break over lunch ignoring extended pause outlier
+    wx,wy = zip(*land_waits[5:])
+    wx2 = matplotlib.dates.date2num(wx)
+    p = numpy.poly1d(numpy.polyfit(wx2, wy, 1))
+    ax2.plot(wx,p(wx2),"r--", color='saddlebrown')
 
     # Major destination labels
     for l in ax.get_yticklabels():
@@ -367,15 +411,23 @@ def main():
     
     #            arrowprops=dict(arrowstyle="->", color='gray', connectionstyle="arc,angleA=120,rad=10,armA=35,armB=0,angleB=40"))
 
-    plt.savefig('temp.pdf', transparent=True, papertype='a4', orientation='landscape')
+    fig.savefig('temp.pdf', transparent=True, papertype='a4', orientation='landscape')
 
+    # Quick and dirty way of stamping the track diagram over the top, sadly not auto-aligned...
+    import subprocess
+    subprocess.call(["pdftk", "temp.pdf", "background", "track-diagram-overlay.pdf", "output", "2016-fahrt-in-mai.pdf"])
+
+    # Failed attempt to get the GUI updating of the date to work
     def onresize(event):
         print 'onresize()', ax.get_xticks()[0], ax2.get_xlim()[0]
         ax2.set_xlabel(german_date(ax.get_xticks()[0]), labelpad=-29, ha='right', position=(0.99,0), color='gray')
         fig.canvas.draw()
-
     ax2.callbacks.connect('xlim_changed', onresize)
-    plt.show()
+
+    # Show interactively; skipped if there's no live terminal
+    import sys
+    if sys.stdout.isatty():
+        plt.show()
 
 if __name__=='__main__':
     main()
