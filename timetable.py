@@ -6,6 +6,7 @@ import matplotlib.ticker
 import datetime
 import time
 import operator
+import math
 
 chainages = {
  'Waldstrecke': +407, # Farther extend of loop before returning
@@ -231,8 +232,19 @@ def main():
     # Right
     #ax2.set_ylabel(u'Metierung Süd ↔ Nord', size='small', color='darkgray', labelpad=-32, ha='center')
     ax2.set_ylabel(u'Metierung', size='small', color='darkgray', labelpad=-28, ha='center')
+    ax2.set_ylabel(u'Kilometierung', size='small', color='darkgray', labelpad=-28, ha='center')
     ax2.get_xaxis().set_visible(False)
     metres = matplotlib.ticker.FormatStrFormatter('%3dm')
+    def abs_metres(value, position):
+        s = 'km0+%03d' % abs(value)
+        s = 'km%d+%03d' % divmod(abs(value), 1000)
+        #if value < 0:
+        #    s = s.replace('+','-')
+        if abs(value) <1:
+            s = 'null'
+            s = 'km0'
+        return s
+    metres = matplotlib.ticker.FuncFormatter(abs_metres)
     ax2.yaxis.set_major_formatter(metres)
     ax2.yaxis.set_label_position('right')
     ax2.yaxis.set_ticks_position('right')
