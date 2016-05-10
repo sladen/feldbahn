@@ -164,8 +164,9 @@ def main():
     distance(parse_timestamp('1739'), 62) # Bahnhof P.2
     distance(parse_timestamp('1741'), 59-40) # Mid-way-siding points
     distance(parse_timestamp('1743'), 59-40) # Mid-way-siding points
-    distance(parse_timestamp('1744'), 59-112) # Carriage shed
-    distance(parse_timestamp('1745'), 59-112) # Carriage shed
+    distance(parse_timestamp('1744'), 59-129+2) # Carriage shed
+    distance(parse_timestamp('1745'), 59-129+2) # Carriage shed LE
+    distance(parse_timestamp('1745'), 59-129+2+18) # Carriage shed LE
     distance(parse_timestamp('1749'), 79) # Front of Lokshuppen
 
     saved_xy = x,y
@@ -221,13 +222,78 @@ def main():
     ax.yaxis.grid(True, which='major')
     ax.yaxis.grid(False, which='minor')
 
+    # Highlight eyeballed *Waldstrecke* localised peak waiting times - "Spitzenwartezeit"
+    annotation = 'Waldstrecke\nSpitzenwartezeit'
+    annotation = 'Spitzenwartezeit'
+    #ax.axvspan(parse_timestamp(1210), parse_timestamp(1300), 0.4, 0.7, color='lightyellow')
+    #ax.axvspan(parse_timestamp(1510), parse_timestamp(1600), 0.4, 0.7, color='lightyellow')
+
+    colour = 'darkgray'
+    text_pos = 140
+    bbox_props = dict(boxstyle="rarrow,pad=0.1", fc="lightyellow", ec="lightgray", lw=0.5)
+    t = parse_timestamp(1210)
+    ax.annotate(annotation, xy=(t, -100), xytext=(t, text_pos), ha='left', color=colour, rotation=-2, fontsize='x-small', va='bottom',
+                bbox=bbox_props)
+    text_pos -= 10
+    t = parse_timestamp(1510)
+    ax.annotate(annotation, xy=(t, -100), xytext=(t, text_pos), ha='left', color=colour, rotation=-2, fontsize='x-small', va='bottom',
+                bbox=bbox_props)
+
+    # Freifahrt
+    text_pos -= 10
+    annotation = 'Freifahrt'
+    bbox_props['fc'] = 'aliceblue'
+    #ax.axvspan(parse_timestamp(1700), parse_timestamp(1730), 0.4, 0.7, color='aliceblue')
+    ax.axvspan(parse_timestamp(1700), parse_timestamp(1730), 0.0, 1.0, color='aliceblue')
+    t = parse_timestamp(1700)
+    ax.annotate(annotation, xy=(t, -100), xytext=(t, text_pos), ha='left', color=colour, rotation=-2, fontsize='x-small', va='bottom',
+                bbox=bbox_props)
+
+    # Waiting time trend lines
+    colour = 'lightgray'
+    t = parse_timestamp(1056)
+    tt = parse_timestamp(1054)
+    annotation = 'Waldstr.\nWarte\nund\nTrends'
+    text_pos = 195
+    ax.annotate(annotation, xy=(t, 115), xytext=(tt, text_pos), ha='center', color=colour, rotation=0, fontsize='x-small', va='bottom',
+                backgroundcolor='white', 
+                arrowprops=dict(arrowstyle="->", color=colour, connectionstyle="arc,angleA=248,rad=10,armA=45"))
+
+    # Lunch break definite "pausen"
+    colour = 'lightgray'
+    t = parse_timestamp(1316)
+    tt = parse_timestamp(1318)
+    annotation = '"Mittagspause"'
+    annotation = '"Mittags-\npausen"'
+    text_pos = 220
+    ax.annotate(annotation, xy=(t, 100), xytext=(tt, text_pos), ha='center', color=colour, rotation=0, fontsize='small', va='bottom',
+                arrowprops=dict(arrowstyle="->", color=colour, connectionstyle="arc,angleA=272,rad=10,armA=35,armB=0,angleB=0"))
+    
+
+    # Waiting time possible preference for Waldstrecke.
+    t = parse_timestamp(1430)
+    t = parse_timestamp(1352)
+    tt = parse_timestamp(1433)
+    tt = parse_timestamp(1359)
+    tt = parse_timestamp(1412)
+    annotation = u'Eventuell\nPräferenz\nWaldstr.?'
+    annotation = u'Präferenz\nWaldstrecke?'
+    text_pos = 270
+    colour='darkgray'
+    bbox_props=dict(boxstyle="round4,pad=0.3", fc="lightyellow", ec="lightgray", lw=0.3)
+    ax.annotate(annotation, xy=(t, 84), xytext=(tt, text_pos), ha='center', color=colour, rotation=0, fontsize='x-small', va='top',
+                bbox=bbox_props,
+#                backgroundcolor='lightyellow',
+                arrowprops=dict(arrowstyle="->", color='gray', connectionstyle="arc,angleA=238,rad=10,armA=67"))
+
+    
 
     #ax.set_xlabel('01.05.2016 (CET)', labelpad=-29, ha='right', position=(0.99,0), color='gray')
     ax2.set_xlim(parse_timestamp('1000'), parse_timestamp('1800'))
     ax2.set_ylim(-400,400)
     #print `datetime.datetime.strftime('%d.%m.%Y', ax.get_xticks()[0])`
     german_date = matplotlib.dates.DateFormatter("%d.%m.%Y (CET)")
-    ax.set_xlabel(german_date(ax.get_xlim()[0]), labelpad=-29, ha='right', position=(0.99,0), color='lightgray', fontsize='small')
+    ax.set_xlabel(german_date(ax.get_xlim()[0]), labelpad=-27, ha='left', position=(0.01,0), color='lightgray', fontsize='x-small')
     #ax2.set_ylabel(u'Landratsamt          —           Waldstrecke')
 
     # Right
@@ -389,20 +455,22 @@ def main():
     # 4 pax on 10:28 - 4 Gä.
     rotation = 0
     arrow_rotation = 100
-    t = parse_timestamp(times[0][1])
+    t = parse_timestamp(times[0][1]) - datetime.timedelta(minutes=1)
     tt = t - datetime.timedelta(minutes=1)
-    ax.annotate(u'1.\nAuslas\n<10%\n', xy=(t, -40), xytext=(tt, -220), ha='right', color='lightgray', fontsize='small', rotation=rotation, va='top',
+    ax.annotate(u'1.\nAuslas\n<10%\n', xy=(t, -10), xytext=(tt, -220), ha='right', color='lightgray', fontsize='small', rotation=rotation, va='top',
 #                backgroundcolor='white',
                 arrowprops=dict(arrowstyle="->", color='lightgray', 
-                                connectionstyle="arc,angleA=%d,rad=10,armA=50,armB=0,angleB=0" % arrow_rotation))
+                                connectionstyle="arc,angleA=%d,rad=10,armA=80,armB=0,angleB=0" % (arrow_rotation -7)))
 
     # 17 pax on 12:52 "17 Gäste"
-    arrow_rotation = 110
+    arrow_rotation = 110 -4
     t = parse_timestamp(1252)
     tt = t + datetime.timedelta(minutes=11)
     tt = parse_timestamp(1300)
     ax.annotate(u'12:52\nAuslastung\n<40%', xy=(t, -40), xytext=(tt, -220), ha='center', color='lightgray', fontsize='small',
-                rotation=rotation, va='top', backgroundcolor='white',
+                rotation=rotation, va='top',
+#                backgroundcolor='lightyellow',
+                backgroundcolor='white',
                 arrowprops=dict(arrowstyle="->", color='lightgray',
                                 connectionstyle="arc,angleA=%d,rad=10,armA=50,armB=0,angleB=40" % arrow_rotation))
     # 2x full trains - voll
@@ -411,6 +479,7 @@ def main():
     
     #            arrowprops=dict(arrowstyle="->", color='gray', connectionstyle="arc,angleA=120,rad=10,armA=35,armB=0,angleB=40"))
 
+    # Now finally do something useful with it.
     fig.savefig('temp.pdf', transparent=True, papertype='a4', orientation='landscape')
 
     # Quick and dirty way of stamping the track diagram over the top, sadly not auto-aligned...
