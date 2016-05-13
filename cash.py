@@ -14,12 +14,12 @@ import csv
 import StringIO
 import copy
 
-def parse_timestamp(i):
+def parse_timestamp(i, base_date=None):
     s = str(i)
     assert len(s) == 4
     hours = int(s[:2])
     minutes = int(s[-2:])
-    return datetime.datetime(2016,5,1,hours,minutes)
+    return base_date + datetime.timedelta(hours=hours, minutes=minutes)
 
 def main():
     def german_float(s):
@@ -36,18 +36,24 @@ def main():
         namelist.sort()
         # Encodings fun
         for most_recent in namelist:
-            most_recent = namelist[-1]
+            print 'processing', most_recent
             file_datestamp = most_recent[:len('YYYY-mm-dd')]
             target_date = datetime.datetime.strptime(file_datestamp, '%Y-%m-%d')
             raw = z.open(most_recent.encode('cp437'), 'r').read()
             contents = raw.decode('iso-8859-15').encode('utf-8')
-            csvfile = csv.reader(contents.splitlines(), delimiter=';', quotechar='"')
+            csvfile = csv.reader(contents.splitlines(True), delimiter=';', quotechar='"')
             headers = csvfile.next()
 
             # Opening balance line
-            cd = csv.DictReader(contents.splitlines(), delimiter=';', quotechar='"')
+            cd = csv.DictReader(contents.splitlines(True), delimiter=';', quotechar='"')
             opening_row = cd.next()
-            assert opening_row['Belegpositionstext'] == 'Einlage Wechselgeld'
+
+            # Assert.
+            if opening_row['Belegpositionstext'] != 'Einlage Wechselgeld':
+                print 'skipping processing', most_recent, target_date
+                print opening_row
+                continue
+            
             starting_balance = german_float(opening_row['Gewinn'])
 
             #for row in csvfile:
@@ -56,6 +62,9 @@ def main():
             cat_y = copy.deepcopy(cat_x)
 
             def append_cat(category, x, y):
+                if not cat_x.has_key(category):
+                    cat_x[category] = list()
+                    cat_y[category] = list()
                 cat_x[category].append(x)
                 cat_y[category].append(y)
 
@@ -71,23 +80,21 @@ def main():
                 bpt = d['Belegpositionstext']
                 zls = d['Zahlungsart']
                 count = int(d['Menge'])
+                if bpt == 'Abschöpfung, Kasse an Bank':
+                    continue
                 if 'Kostenlos' in zls:
                     append_cat('members', timestamp, profit)
                 elif agt == 'Sonstiges' and 'Fahrkarte' in atk:
                     append_cat('rides', timestamp, profit)
                     multi_ticket = count
-                    print bpt[0].isdigit(), `bpt[0]`
                     if bpt[0].isdigit():
                         multi_ticket *= int(bpt[0])
-                        print 'mulit_buy_ticket', multi_ticket
                     if 'Erwachsener' in bpt:
                         append_cat('adult_c', timestamp, multi_ticket)
                     elif 'Kind' in bpt:
                         append_cat('child_c', timestamp, multi_ticket)
                     append_cat('rides_c', timestamp, multi_ticket)
-
                 elif agt == 'Sonstiges' and atk == 'Lokpfeife':
-                    print timestamp, profit
                     append_cat('whistles', timestamp, profit)
                     append_cat('whistles_c', timestamp, count)
                 elif agt == 'Getränke':
@@ -100,11 +107,19 @@ def main():
                         append_cat('pommes_c', timestamp, count)
                     if 'Brötchen' in bpt:
                         append_cat('breadroll_c', timestamp, count)
+                    if 'Steak' in bpt:
+                        append_cat('steak_c', timestamp, count)
+                    if 'wurst' in bpt.lower():
+                        append_cat('sausage_c', timestamp, count)
+                    if 'Kartoffelsalat' in bpt:
+                        append_cat('potato_c', timestamp, count)
                 else:
                     append_cat('unknown', timestamp, profit)
-                    print agt, atk, profit
+                    print 'unknown:', bpt, agt, atk, profit
                 append_cat('total', timestamp, profit)
+        render(target_date,cat_x,cat_y)
 
+def render(target_date,cat_x,cat_y):
     x = []
     y = []
 
@@ -121,7 +136,7 @@ def main():
     ax.set_title(u"Wiesloch Feldbahnmuseum: Geld (Fahrt in den Mai 2016)", position=(0.5,-0.11), color='darkgray')
 
     # Opening/closing hours
-    ax.set_xlim(parse_timestamp('1000'), parse_timestamp('1800'))
+    ax.set_xlim(parse_timestamp('1000', target_date), parse_timestamp('1800', target_date))
     ax.set_ylim(-400,400)
     ax.get_xaxis().set_visible(True)
 
@@ -138,14 +153,14 @@ def main():
     for k in cat_x.keys():
         foo = cat_y[k]
         running_total = numpy.cumsum(foo)
-        s = '%s (%d)' % (k, running_total[-1])
 
         if k == 'total':
             ax.set_ylim(0, running_total.max())
 
         # if the unknown category is empty we can skip it
-        if k == 'unknown' and running_total[-1] == 0:
+        if k == 'unknown' and running_total.size == 0:
             continue
+        s = '%s (%d)' % (k, running_total[-1])
         ax.plot(cat_x[k], running_total, label=s)
         ax.legend(loc = 'upper left')
 
